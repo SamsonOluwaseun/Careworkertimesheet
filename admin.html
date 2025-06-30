@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Care Worker Timesheet</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for a clean look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS Variables - Consistent with main app */
+        :root {
+            --primary-blue: #007bff;
+            --dark-blue: #0056b3;
+            --dark-text: #212529;
+            --light-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #c0c0c0;
+            --shadow-color: rgba(0,0,0,0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            padding: 32px;
+            max-width: 800px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Form inputs styling */
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        input[type="date"],
+        input[type="month"],
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            color: var(--dark-text);
+            transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        input[type="month"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.4);
+        }
+
+        /* Buttons */
+        button {
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            background-color: var(--dark-blue);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        /* Red button for delete */
+        button.bg-red-500 {
+            background-color: #dc3545;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+        }
+
+        button.bg-red-500:hover {
+            background-color: #c82333;
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        th, td {
+            padding: 0.75rem 1.5rem;
+            text-align: left;
+            font-size: 0.875rem;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Message box */
+        .message-box {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .message-box-content {
+            background-color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            max-width: 20rem;
+            width: 100%;
+            text-align: center;
+        }
+
+        .message-box-content button {
+            margin-top: 1rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.375rem;
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .message-box-content button:hover {
+            background-color: var(--dark-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Message Box for alerts -->
+        <div id="messageBox" class="message-box hidden">
+            <div class="message-box-content">
+                <p id="messageText" class="text-lg font-medium text-gray-800"></p>
+                <button onclick="hideMessageBox()">OK</button>
+            </div>
+        </div>
+
+        <!-- Admin Login View -->
+        <div id="adminAuthView" class="flex flex-col items-center justify-center space-y-8">
+            <h2 class="text-4xl font-bold text-gray-800 mb-4">Admin Login</h2>
+            <div class="w-full max-w-md bg-gray-50 p-8 rounded-lg shadow-inner border border-gray-200">
+                <h3 class="text-2xl font-semibold text-gray-700 mb-6 text-center">Login</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="adminUsername" class="block text-sm font-medium text-gray-700 mb-1">Admin Username</label>
+                        <input type="text" id="adminUsername" placeholder="Enter admin username" class="rounded-lg" />
+                    </div>
+                    <div>
+                        <label for="adminPassword" class="block text-sm font-medium text-gray-700 mb-1">Admin Password</label>
+                        <input type="password" id="adminPassword" placeholder="Enter admin password" class="rounded-lg" />
+                    </div>
+                    <button onclick="handleAdminLogin()" class="w-full">Login as Admin</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Management View (hidden by default) -->
+        <div id="adminView" class="hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-3xl font-bold text-gray-800 text-center sm:text-left">Client Management</h2>
+                <button onclick="handleAdminLogout()" class="bg-red-500 hover:bg-red-600">Logout Admin</button>
+            </div>
+
+            <div class="bg-gray-50 p-6 rounded-lg shadow-inner border border-gray-200 mb-8">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Add New Client</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <label class="block">
+                        <span class="text-gray-700 text-sm font-medium">Client Name</span>
+                        <input type="text" id="newClientName" class="mt-1" placeholder="e.g., John Doe" />
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-700 text-sm font-medium">Start Date</span>
+                        <input type="date" id="newClientStartDate" class="mt-1" onchange="setDefaultEndDate()" />
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-700 text-sm font-medium">End Date</span>
+                        <input type="date" id="newClientEndDate" class="mt-1" />
+                    </label>
+                </div>
+                <button onclick="saveOrUpdateClient()" id="addUpdateClientButton" class="w-full">Add Client</button>
+            </div>
+
+            <div class="bg-gray-50 p-6 rounded-lg shadow-inner border border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Existing Clients</h3>
+                <div class="overflow-x-auto">
+                    <table id="clientsTable">
+                        <thead>
+                            <tr>
+                                <th>Client Name</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Clients will be dynamically filled here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Admin credentials (for demo purposes - In a real app, use a secure backend)
+        const ADMIN_USERNAME = 'admin';
+        const ADMIN_PASSWORD = 'adminpassword'; // CHANGE THIS IN A REAL APPLICATION!
+
+        // Global variable to track if we are editing a client (-1 means not editing)
+        let editingClientIndex = -1;
+
+        // Utilities
+        function showMessage(msg) {
+            const box = document.getElementById("messageBox");
+            const msgText = document.getElementById("messageText");
+            msgText.textContent = msg;
+            box.classList.remove("hidden");
+        }
+
+        function hideMessageBox() {
+            document.getElementById("messageBox").classList.add("hidden");
+        }
+
+        // --- Admin Authentication ---
+        function handleAdminLogin() {
+            const username = document.getElementById('adminUsername').value.trim();
+            const password = document.getElementById('adminPassword').value;
+
+            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                localStorage.setItem('adminLoggedIn', 'true');
+                showMessage('Admin login successful!');
+                switchToAdminView();
+            } else {
+                showMessage('Invalid admin username or password.');
+            }
+        }
+
+        function handleAdminLogout() {
+            localStorage.removeItem('adminLoggedIn');
+            showMessage('Admin logged out.');
+            switchToAdminAuthView();
+        }
+
+        function switchToAdminView() {
+            document.getElementById('adminAuthView').classList.add('hidden');
+            document.getElementById('adminView').classList.remove('hidden');
+            clearClientForm(); // Ensure form is reset when entering admin view
+            loadClients(); // Load clients when admin logs in
+        }
+
+        function switchToAdminAuthView() {
+            document.getElementById('adminView').classList.add('hidden');
+            document.getElementById('adminAuthView').classList.remove('hidden');
+            document.getElementById('adminUsername').value = '';
+            document.getElementById('adminPassword').value = '';
+        }
+
+        // --- Client Management Functions ---
+        // Get clients from localStorage
+        function getClients() {
+            return JSON.parse(localStorage.getItem("clients") || "[]");
+        }
+
+        // Save clients to localStorage
+        function saveClients(clients) {
+            localStorage.setItem("clients", JSON.stringify(clients));
+        }
+
+        // Set default end date to 20 years from start date
+        function setDefaultEndDate() {
+            const startDateInput = document.getElementById('newClientStartDate');
+            const endDateInput = document.getElementById('newClientEndDate');
+            const startDateValue = startDateInput.value;
+
+            if (startDateValue) {
+                const startDate = new Date(startDateValue);
+                startDate.setFullYear(startDate.getFullYear() + 20); // Add 20 years
+                
+                // Format the date to YYYY-MM-DD for the input field
+                const year = startDate.getFullYear();
+                const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                const day = String(startDate.getDate()).padStart(2, '0');
+                endDateInput.value = `${year}-${month}-${day}`;
+            } else {
+                endDateInput.value = ''; // Clear end date if start date is cleared
+            }
+        }
+
+        // Function to reset the client form and button state
+        function clearClientForm() {
+            document.getElementById('newClientName').value = '';
+            document.getElementById('newClientStartDate').value = '';
+            document.getElementById('newClientEndDate').value = '';
+            document.getElementById('addUpdateClientButton').textContent = 'Add Client';
+            editingClientIndex = -1; // Reset editing index
+        }
+
+        // Function to handle adding or updating a client
+        function saveOrUpdateClient() {
+            const nameInput = document.getElementById('newClientName');
+            const startDateInput = document.getElementById('newClientStartDate');
+            const endDateInput = document.getElementById('newClientEndDate');
+
+            const name = nameInput.value.trim();
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+
+            if (!name || !startDate || !endDate) {
+                showMessage("Please fill in all client fields.");
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                showMessage("Start Date cannot be after End Date.");
+                return;
+            }
+
+            let clients = getClients();
+            
+            if (editingClientIndex !== -1) {
+                // Update existing client
+                const originalClientName = clients[editingClientIndex].name;
+                // Check if name changed and new name conflicts with another existing client
+                if (name.toLowerCase() !== originalClientName.toLowerCase() && clients.some((client, idx) => idx !== editingClientIndex && client.name.toLowerCase() === name.toLowerCase())) {
+                    showMessage("Client with this name already exists.");
+                    return;
+                }
+                clients[editingClientIndex] = { name, startDate, endDate };
+                showMessage(`Client '${name}' updated successfully!`);
+            } else {
+                // Add new client
+                if (clients.some(client => client.name.toLowerCase() === name.toLowerCase())) {
+                    showMessage("Client with this name already exists.");
+                    return;
+                }
+                clients.push({ name, startDate, endDate });
+                showMessage(`Client '${name}' added successfully!`);
+            }
+
+            saveClients(clients);
+            clearClientForm(); // Reset form and button
+            loadClients(); // Refresh the client table
+        }
+
+        // Function to populate the form for editing
+        function editClient(index) {
+            const clients = getClients();
+            if (index >= 0 && index < clients.length) {
+                const clientToEdit = clients[index];
+                document.getElementById('newClientName').value = clientToEdit.name;
+                document.getElementById('newClientStartDate').value = clientToEdit.startDate;
+                document.getElementById('newClientEndDate').value = clientToEdit.endDate;
+                document.getElementById('addUpdateClientButton').textContent = 'Update Client';
+                editingClientIndex = index; // Set the global editing index
+            }
+        }
+
+        // Load and display clients in the table
+        function loadClients() {
+            const clients = getClients();
+            const tbody = document.querySelector('#clientsTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            if (clients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No clients added yet.</td></tr>';
+                return;
+            }
+
+            clients.forEach((client, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${client.name}</td>
+                    <td>${client.startDate}</td>
+                    <td>${client.endDate}</td>
+                    <td>
+                        <button onclick="editClient(${index})" class="bg-primary-blue hover:bg-dark-blue text-white px-3 py-1 rounded-md text-sm mr-2">Edit</button>
+                        <button onclick="deleteClient(${index})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Delete a client
+        function deleteClient(indexToDelete) {
+            let clients = getClients();
+            if (indexToDelete >= 0 && indexToDelete < clients.length) {
+                const clientName = clients[indexToDelete].name;
+                clients.splice(indexToDelete, 1);
+                saveClients(clients);
+                showMessage(`Client '${clientName}' deleted.`);
+                loadClients(); // Refresh the client table
+                clearClientForm(); // Clear form in case the deleted client was being edited
+            }
+        }
+
+        // On page load, check admin login status
+        window.onload = function() {
+            if (localStorage.getItem('adminLoggedIn') === 'true') {
+                switchToAdminView();
+            } else {
+                switchToAdminAuthView();
+            }
+            // Set default end date when the page loads if a start date is already present (e.g., from browser autofill)
+            setDefaultEndDate(); 
+        };
+    </script>
+</body>
+</html>
