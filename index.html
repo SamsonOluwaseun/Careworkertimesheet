@@ -48,7 +48,7 @@
         input[type="number"],
         input[type="date"],
         input[type="month"],
-        input[type="time"], /* Added time input type */
+        input[type="time"],
         select {
             width: 100%;
             padding: 0.75rem;
@@ -63,7 +63,7 @@
         input[type="number"]:focus,
         input[type="date"]:focus,
         input[type="month"]:focus,
-        input[type="time"]:focus, /* Added time input type focus */
+        input[type="time"]:focus,
         select:focus {
             outline: none;
             border-color: var(--primary-blue);
@@ -169,8 +169,8 @@
                 <h3 class="text-2xl font-semibold text-gray-700 mb-6 text-center">Login</h3>
                 <div class="space-y-4">
                     <div>
-                        <label for="loginUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                        <input type="text" id="loginUsername" placeholder="Enter your username" class="rounded-lg" />
+                        <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="loginEmail" placeholder="Enter your email" class="rounded-lg" />
                     </div>
                     <div>
                         <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
@@ -184,8 +184,8 @@
                 <h3 class="text-2xl font-semibold text-gray-700 mb-6 text-center">Register</h3>
                 <div class="space-y-4">
                     <div>
-                        <label for="registerUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                        <input type="text" id="registerUsername" placeholder="Choose a username" class="rounded-lg" />
+                        <label for="registerEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="registerEmail" placeholder="Choose an email" class="rounded-lg" />
                     </div>
                     <div>
                         <label for="registerPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
@@ -197,7 +197,6 @@
         </div>
 
         <!-- Timesheet Application View (hidden by default) -->
-        <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
         <div id="timesheetView" class="hidden">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-3xl font-bold text-gray-800 text-center sm:text-left">Care Worker Timesheet</h2>
@@ -227,9 +226,11 @@
                         </select>
                     </label>
                     <label class="block">
-                        <span class="text-gray-700 text-sm font-medium">Client</span>
+                        <span class="text-gray-700 text-sm font-medium">Client Name</span>
                         <select id="clientSelect" class="mt-1">
-                            <!-- Clients will be dynamically loaded here from localStorage -->
+                            <option value="SK">SK</option>
+                            <option value="LL">LL</option>
+                            <option value="RFK">RFK</option>
                         </select>
                     </label>
                 </div>
@@ -298,7 +299,7 @@
                                 <th>Day</th>
                                 <th>Client</th>
                                 <th>Total Units</th>
-                                <th>Actions</th> <!-- New column for delete button -->
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -310,10 +311,48 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Firebase SDK imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            query, 
+            where, 
+            getDocs, 
+            deleteDoc, 
+            doc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Your Firebase configuration (REPLACE WITH YOUR ACTUAL CONFIG)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQzW0zV4eewaQzU7FI-tqP5TrFj-Ixkag",
+            authDomain: "care-worker-timesheet.firebaseapp.com",
+            projectId: "care-worker-timesheet",
+            storageBucket: "care-worker-timesheet.firebasestorage.app",
+            messagingSenderId: "390259500068",
+            appId: "1:390259500068:web:24f66ddb7cb42a046e64b1"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
         // IMPORTANT: Replace this with your deployed Google Apps Script Web App URL
-        // Instructions for deployment are provided below this code block.
-        const GOOGLE_APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwcpIiqdx3aHsRbSTGFT6TVYf7FQHPjBcNIe8S_Sdf1uEIhO9u8IKes3v50-M0_oh-t/exec';
+        const GOOGLE_APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxHiY4qbhSkPJmouuyJs4hD11SNRXzUuYqjJRIJyEtosgU0rrp4JjPRakoTcT-Xc3I/exec';
+
+        // Global state for current user
+        let currentUser = null;
+        let currentUserId = null;
 
         // Utilities
         function showMessage(msg) {
@@ -327,150 +366,100 @@
             document.getElementById("messageBox").classList.add("hidden");
         }
 
-        // Get saved users from localStorage
-        function getUsers() {
-            return JSON.parse(localStorage.getItem("users") || "{}");
-        }
-
-        // Save users to localStorage
-        function saveUsers(users) {
-            localStorage.setItem("users", JSON.stringify(users));
-        }
-
-        // Save logged in username in localStorage for session persistency
-        function getLoggedInUser() {
-            return localStorage.getItem("loggedInUser");
-        }
-
-        function setLoggedInUser(username) {
-            if (username) {
-                localStorage.setItem("loggedInUser", username);
+        // --- Firebase Authentication Handlers ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                currentUserId = user.uid;
+                document.getElementById("loggedInUserDisplay").textContent = `Logged in as: ${user.email}`;
+                switchToTimesheetView();
             } else {
-                localStorage.removeItem("loggedInUser");
+                currentUser = null;
+                currentUserId = null;
+                document.getElementById("loggedInUserDisplay").textContent = '';
+                switchToAuthView();
             }
-        }
+        });
 
-        // Save timesheet entries: Stored as { username: [entryObj, ...], ... }
-        function getEntries() {
-            return JSON.parse(localStorage.getItem("entries") || "{}");
-        }
+        async function handleRegister() {
+            const emailInput = document.getElementById("registerEmail");
+            const passwordInput = document.getElementById("registerPassword");
 
-        function saveEntries(entries) {
-            localStorage.setItem("entries", JSON.stringify(entries));
-        }
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
 
-        // Get clients from localStorage
-        function getClients() {
-            return JSON.parse(localStorage.getItem("clients") || "[]");
-        }
-
-        // Load clients into the dropdown
-        function loadClientsIntoDropdown() {
-            const clientSelect = document.getElementById('clientSelect');
-            clientSelect.innerHTML = ''; // Clear existing options
-            const clients = getClients();
-            if (clients.length === 0) {
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = 'No clients available';
-                defaultOption.disabled = true;
-                defaultOption.selected = true;
-                clientSelect.appendChild(defaultOption);
+            if (!email || !password) {
+                showMessage("Please enter both email and password.");
                 return;
             }
 
-            clients.forEach(client => {
-                const option = document.createElement('option');
-                option.value = client.name;
-                option.textContent = client.name;
-                clientSelect.appendChild(option);
-            });
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                showMessage("Registration successful! You can now log in.");
+                emailInput.value = "";
+                passwordInput.value = "";
+                document.getElementById("loginEmail").focus();
+            } catch (error) {
+                console.error("Registration error:", error.code, error.message);
+                showMessage(`Registration failed: ${error.message}`);
+            }
         }
 
+        async function handleLogin() {
+            const emailInput = document.getElementById("loginEmail");
+            const passwordInput = document.getElementById("loginPassword");
 
-        // Show or hide views
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+                showMessage("Please enter both email and password.");
+                return;
+            }
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showMessage("Login successful!");
+                emailInput.value = "";
+                passwordInput.value = "";
+                // onAuthStateChanged will handle view switch
+            } catch (error) {
+                console.error("Login error:", error.code, error.message);
+                showMessage(`Login failed: ${error.message}`);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+                showMessage("You have been logged out.");
+                // onAuthStateChanged will handle view switch
+            } catch (error) {
+                console.error("Logout error:", error.message);
+                showMessage(`Logout failed: ${error.message}`);
+            }
+        }
+
+        // --- View Switching ---
         function switchToTimesheetView() {
             document.getElementById("authView").classList.add("hidden");
             document.getElementById("timesheetView").classList.remove("hidden");
-            const username = getLoggedInUser();
-            document.getElementById("loggedInUserDisplay").textContent = `Logged in as: ${username}`;
             clearInputs(); // Clear form inputs when switching to timesheet view
-            loadClientsIntoDropdown(); // Load clients when switching to timesheet view
-            loadEntries(); // Load entries for the logged-in user
+            // Client names are now hardcoded in the HTML, no need to load from Firestore
+            loadEntries(); // Load entries for the logged-in user from Firestore
         }
 
         function switchToAuthView() {
             document.getElementById("timesheetView").classList.add("hidden");
             document.getElementById("authView").classList.remove("hidden");
             // Clear login/register fields when switching to auth view
-            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginEmail').value = '';
             document.getElementById('loginPassword').value = '';
-            document.getElementById('registerUsername').value = '';
+            document.getElementById('registerEmail').value = '';
             document.getElementById('registerPassword').value = '';
         }
 
-        // Registration handler
-        function handleRegister() {
-            const usernameInput = document.getElementById("registerUsername");
-            const passwordInput = document.getElementById("registerPassword");
-
-            const username = usernameInput.value.trim().toLowerCase(); // Convert to lowercase for storage
-            const password = passwordInput.value;
-
-            if (!username || !password) {
-                showMessage("Please enter both username and password.");
-                return;
-            }
-
-            const users = getUsers();
-            if (users[username]) { // Check if lowercase username already exists
-                showMessage("Username already exists. Please choose another.");
-                return;
-            }
-
-            users[username] = password; // Store with lowercase username as key
-            saveUsers(users);
-
-            showMessage("Registration successful! You can now log in.");
-            usernameInput.value = "";
-            passwordInput.value = "";
-            document.getElementById("loginUsername").focus();
-        }
-
-        // Login handler
-        function handleLogin() {
-            const usernameInput = document.getElementById("loginUsername");
-            const passwordInput = document.getElementById("loginPassword");
-
-            const username = usernameInput.value.trim().toLowerCase(); // Convert to lowercase for lookup
-            const password = passwordInput.value;
-
-            if (!username || !password) {
-                showMessage("Please enter both username and password.");
-                return;
-            }
-
-            const users = getUsers();
-            // Check if lowercase username exists and password matches
-            if (!users[username] || users[username] !== password) {
-                showMessage("Invalid username or password.");
-                return;
-            }
-
-            setLoggedInUser(username); // Store the lowercase username as loggedInUser
-            usernameInput.value = "";
-            passwordInput.value = "";
-            switchToTimesheetView();
-        }
-
-        // Logout
-        function handleLogout() {
-            setLoggedInUser(null);
-            showMessage("You have been logged out.");
-            switchToAuthView();
-        }
-
-        // Function to update the Day dropdown based on the selected Date
+        // --- Timesheet Entry Functions ---
         function updateDayFromDate() {
             const entryDateInput = document.getElementById('entryDate');
             const daySelect = document.getElementById('daySelect');
@@ -482,64 +471,54 @@
                 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
                 daySelect.value = days[dayOfWeek];
             } else {
-                // Optionally reset the day if no date is selected
                 daySelect.selectedIndex = 0;
             }
         }
 
-        // Form Inputs references for calls
         const callTypeInput = document.getElementById("callType");
         const durationHoursInput = document.getElementById("durationHours");
         const durationMinutesInput = document.getElementById("durationMinutes");
+        const clientSelect = document.getElementById("clientSelect"); // Get reference to the select element
+        let calls = []; // Array to store calls temporarily for the current new entry
 
-        // Array to store calls temporarily before saving an entry
-        let calls = [];
-
-        // Add a call to the calls array and update the calls table
         function addCall() {
             const callType = callTypeInput.value;
-            const hours = parseFloat(durationHoursInput.value) || 0; // Default to 0 if empty
-            const minutes = parseFloat(durationMinutesInput.value) || 0; // Default to 0 if empty
+            const hours = parseFloat(durationHoursInput.value) || 0;
+            const minutes = parseFloat(durationMinutesInput.value) || 0;
             
-            // Basic validation
             if (isNaN(hours) || hours < 0 || isNaN(minutes) || minutes < 0 || minutes >= 60) {
                 showMessage("Please enter valid positive hours and minutes (0-59).");
                 return;
             }
 
-            let unitTime = hours + (minutes / 60); // Total duration in hours
+            let unitTime = hours + (minutes / 60);
 
             if (unitTime <= 0) {
                 showMessage("Total duration must be greater than zero.");
                 return;
             }
 
-            // Add call
-            calls.push({ callType, unitTime }); // Store duration always in hours
+            calls.push({ callType, unitTime });
 
-            // Clear inputs after adding call
             callTypeInput.value = "Morning";
             durationHoursInput.value = "";
             durationMinutesInput.value = "";
 
             updateCallsTable();
-            durationHoursInput.focus(); // Focus on hours input for next entry
+            durationHoursInput.focus();
         }
 
-        // Update calls table with current calls
         function updateCallsTable() {
             const tbody = document.querySelector("#callsTable tbody");
             tbody.innerHTML = "";
 
             if (calls.length === 0) {
-                // Adjusted colspan to 3 (Call Type, Duration (hrs), Actions)
                 tbody.innerHTML = '<tr><td colspan="3" class="text-center py-2 text-gray-500">No calls added yet.</td></tr>';
                 return;
             }
 
             calls.forEach((call, index) => {
                 const tr = document.createElement("tr");
-
                 tr.innerHTML = `
                     <td>${call.callType}</td>
                     <td>${call.unitTime.toFixed(2)}</td>
@@ -551,40 +530,36 @@
             });
         }
 
-        // Remove call from array and update table (for the current new entry)
         function removeCallFromCurrentEntry(index) {
             calls.splice(index, 1);
             updateCallsTable();
         }
 
-        // Clear input fields and calls for the New Entry section
         function clearInputs() {
             document.getElementById("entryDate").value = "";
             document.getElementById("daySelect").selectedIndex = 0;
-            document.getElementById("clientSelect").selectedIndex = 0;
+            clientSelect.selectedIndex = 0; // Reset the client select dropdown
             callTypeInput.value = "Morning";
             durationHoursInput.value = "";
             durationMinutesInput.value = "";
-            calls = []; // Clear temporary calls array
-            updateCallsTable(); // Update the calls table to show it's empty
+            calls = [];
+            updateCallsTable();
 
-            // Set current date as default for entryDate after clearing
             const today = new Date();
             const year = today.getFullYear();
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const dayOfMonth = String(today.getDate()).padStart(2, '0');
             document.getElementById('entryDate').value = `${year}-${month}-${dayOfMonth}`;
-            updateDayFromDate(); // Update day based on the newly set date
+            updateDayFromDate();
 
             document.getElementById("entryDate").focus();
         }
 
         // Function to send data to Google Sheet via Apps Script
-        async function sendEntryToGoogleSheet(payload) {
+        async function sendDataToGoogleSheet(payload) {
             if (GOOGLE_APP_SCRIPT_URL === 'YOUR_GOOGLE_APP_SCRIPT_WEB_APP_URL_HERE' || !GOOGLE_APP_SCRIPT_URL) {
                 console.warn("Google Apps Script URL is not configured. Skipping Google Sheet submission.");
-                // For deletion, if URL is not set, we can't delete from sheet, but local storage deletion proceeds.
-                if (payload.action === 'add') {
+                if (payload.action === 'add_entry_summary' || payload.action === 'add_call_detail') {
                     showMessage("Entry saved locally. Google Sheet integration not configured.");
                 } else if (payload.action === 'delete') {
                     showMessage("Entry deleted locally. Google Sheet integration not configured for deletion.");
@@ -596,7 +571,7 @@
                 const response = await fetch(GOOGLE_APP_SCRIPT_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded', // Required for Apps Script doPost
+                        'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     body: JSON.stringify(payload)
                 });
@@ -605,7 +580,6 @@
                     const result = await response.json();
                     if (result.success) {
                         console.log("Google Sheet operation successful:", result.message);
-                        // showMessage(result.message); // Uncomment if you want confirmation for every sheet operation
                     } else {
                         console.error("Failed Google Sheet operation:", result.message);
                         showMessage("Error with Google Sheet: " + result.message);
@@ -620,167 +594,172 @@
             }
         }
 
-
-        // Save a new entry
-        function saveEntry() {
+        async function saveEntry() {
             const date = document.getElementById("entryDate").value;
             const day = document.getElementById("daySelect").value;
-            const client = document.getElementById("clientSelect").value;
+            const client = clientSelect.value; // Get client name from the select dropdown
 
             if (!date) {
                 showMessage("Please select a date for the entry.");
                 return;
             }
-            if (!client || client === 'No clients available') {
+            if (!client) { // Check if client name is provided
                 showMessage("Please select a client.");
                 return;
             }
-
             if (calls.length === 0) {
                 showMessage("Please add at least one call to save an entry.");
                 return;
             }
 
-            const username = getLoggedInUser();
-            if (!username) {
-                showMessage("User session expired. Please log in again.");
-                switchToAuthView();
+            if (!currentUserId) {
+                showMessage("User not logged in. Please log in again.");
                 return;
             }
 
-            const entries = getEntries();
+            try {
+                const entriesColRef = collection(db, `users/${currentUserId}/timesheetEntries`);
+                const newEntryRef = await addDoc(entriesColRef, {
+                    date,
+                    day,
+                    client,
+                    calls: calls, // Store the array of calls
+                    totalUnits: calls.reduce((sum, c) => sum + c.unitTime, 0),
+                    createdAt: new Date() // Timestamp for sorting/tracking
+                });
 
-            const newEntry = {
-                id: Date.now(), // Assign a simple unique ID for tracking
-                date,
-                day,
-                client,
-                calls: [...calls], // Store a copy of the calls array
-                totalUnits: calls.reduce((sum, c) => sum + c.unitTime, 0)
-            };
+                const entryId = newEntryRef.id; // Get the Firestore generated ID
 
-            if (!entries[username]) {
-                entries[username] = [];
+                // Send each call as a separate line to Google Sheet
+                for (const call of calls) {
+                    await sendDataToGoogleSheet({
+                        action: 'add_call_detail',
+                        entryId: entryId, // Link calls to the main entry
+                        username: currentUser.email, // Use email as username for sheet
+                        date: date,
+                        day: day,
+                        client: client,
+                        callType: call.callType,
+                        callDuration: call.unitTime.toFixed(2)
+                    });
+                }
+
+                showMessage("Entry saved successfully!");
+                clearInputs();
+                loadEntries(); // Reload from Firestore
+            } catch (error) {
+                console.error("Error saving entry:", error);
+                showMessage(`Failed to save entry: ${error.message}`);
             }
-            entries[username].push(newEntry);
-            saveEntries(entries);
-
-            showMessage("Entry saved successfully!");
-            
-            // Send the 'add' request to Google Sheet
-            sendEntryToGoogleSheet({ action: 'add', entry: newEntry, username: username });
-
-            clearInputs(); // Clear inputs and calls table after saving
-            loadEntries(); // Reload the previous entries table
         }
 
-        // Function to remove an entry from previous entries table AND Google Sheet
-        function removeEntry(originalIndex, entryIdToDelete) {
-            const username = getLoggedInUser();
-            if (!username) {
-                showMessage("User session expired. Please log in again.");
-                switchToAuthView();
+        async function removeEntry(entryIdToDelete) {
+            if (!currentUserId) {
+                showMessage("User not logged in. Please log in again.");
                 return;
             }
 
-            const entries = getEntries();
-            let userEntries = entries[username] || [];
-
-            if (originalIndex >= 0 && originalIndex < userEntries.length) {
-                // Remove from local storage
-                userEntries.splice(originalIndex, 1);
-                entries[username] = userEntries;
-                saveEntries(entries);
-                
-                showMessage("Entry deleted successfully!");
-                loadEntries(); // Reload the table to reflect the deletion
+            try {
+                // Delete from Firestore
+                const entryDocRef = doc(db, `users/${currentUserId}/timesheetEntries`, entryIdToDelete);
+                await deleteDoc(entryDocRef);
 
                 // Send deletion request to Google Sheet
-                sendEntryToGoogleSheet({ action: 'delete', entryId: entryIdToDelete, username: username });
+                await sendDataToGoogleSheet({ 
+                    action: 'delete', 
+                    entryId: entryIdToDelete, 
+                    username: currentUser.email // Use email as username for sheet
+                });
 
-            } else {
-                showMessage("Error: Invalid entry to delete.");
+                showMessage("Entry deleted successfully!");
+                loadEntries(); 
+            } catch (error) {
+                console.error("Error deleting entry:", error);
+                showMessage(`Failed to delete entry: ${error.message}`);
             }
         }
 
-        // Load entries from localStorage and show in table
-        function loadEntries() {
-            const username = getLoggedInUser();
-            if (!username) {
-                document.querySelector("#entriesTable tbody").innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Please log in to view entries.</td></tr>';
-                document.getElementById('totalHoursDisplay').textContent = 'Total Hours for Period: 0.00 hrs'; // Clear total hours
-                return;
-            }
-
-            const entries = getEntries();
-            const userEntries = entries[username] || [];
-
+        async function loadEntries() {
             const tbody = document.querySelector("#entriesTable tbody");
             tbody.innerHTML = "";
+            document.getElementById('totalHoursDisplay').textContent = 'Total Hours for Period: 0.00 hrs';
 
-            const monthFilter = document.getElementById('filterMonth').value; // Format:YYYY-MM
-            const yearFilter = monthFilter ? monthFilter.split('-')[0] : '';
-            const monthNumFilter = monthFilter ? monthFilter.split('-')[1] : '';
-
-            let totalHoursForPeriod = 0; // Initialize total hours
-
-            const filteredEntries = userEntries.filter(entry => {
-                const entryDate = entry.date; // Assuming entry.date is 'YYYY-MM-DD'
-                const entryYear = entryDate.substring(0, 4);
-                const entryMonth = entryDate.substring(5, 7);
-
-                return (yearFilter === '' || entryYear === yearFilter) &&
-                       (monthNumFilter === '' || entryMonth === monthNumFilter);
-            });
-
-            if (filteredEntries.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">No records found for this month.</td></tr>';
-                document.getElementById('totalHoursDisplay').textContent = 'Total Hours for Period: 0.00 hrs'; // Clear total hours
+            if (!currentUserId) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Please log in to view entries.</td></tr>';
                 return;
             }
 
-            // To ensure we pass the correct original index for deletion from localStorage,
-            // we need to find the original index of each filtered entry.
-            filteredEntries.forEach(filteredEntry => {
-                const originalIndex = userEntries.findIndex(entry => entry.id === filteredEntry.id);
-                
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${filteredEntry.date}</td>
-                    <td>${filteredEntry.day}</td>
-                    <td>${filteredEntry.client}</td>
-                    <td>${filteredEntry.totalUnits.toFixed(2)}</td>
-                    <td>
-                        <button onclick="removeEntry(${originalIndex}, '${filteredEntry.id}')" class="text-red-600 hover:text-red-800 font-semibold text-sm py-1 px-2 rounded-md">Delete</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-                totalHoursForPeriod += filteredEntry.totalUnits; // Add to total
-            });
+            try {
+                const entriesColRef = collection(db, `users/${currentUserId}/timesheetEntries`);
+                let q = query(entriesColRef);
 
-            // Update the total hours display
-            document.getElementById('totalHoursDisplay').textContent = `Total Hours for Period: ${totalHoursForPeriod.toFixed(2)} hrs`;
+                const monthFilter = document.getElementById('filterMonth').value;
+                if (monthFilter) {
+                    // Filtering by month in-memory as Firestore doesn't support direct month query on date strings.
+                    // For large datasets, consider adding 'year' and 'month' fields to Firestore documents.
+                }
+
+                const querySnapshot = await getDocs(q);
+                let userEntries = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // In-memory filtering by month
+                const yearFilter = monthFilter ? monthFilter.split('-')[0] : '';
+                const monthNumFilter = monthFilter ? monthFilter.split('-')[1] : '';
+
+                const filteredEntries = userEntries.filter(entry => {
+                    const entryDate = entry.date;
+                    const entryYear = entryDate.substring(0, 4);
+                    const entryMonth = entryDate.substring(5, 7);
+
+                    return (yearFilter === '' || entryYear === yearFilter) &&
+                           (monthNumFilter === '' || entryMonth === monthNumFilter);
+                });
+
+                if (filteredEntries.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">No records found for this month.</td></tr>';
+                    return;
+                }
+
+                let totalHoursForPeriod = 0;
+                filteredEntries.forEach(entry => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${entry.date}</td>
+                        <td>${entry.day}</td>
+                        <td>${entry.client}</td>
+                        <td>${entry.totalUnits.toFixed(2)}</td>
+                        <td>
+                            <button onclick="removeEntry('${entry.id}')" class="text-red-600 hover:text-red-800 font-semibold text-sm py-1 px-2 rounded-md">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                    totalHoursForPeriod += entry.totalUnits;
+                });
+
+                document.getElementById('totalHoursDisplay').textContent = `Total Hours for Period: ${totalHoursForPeriod.toFixed(2)} hrs`;
+
+            } catch (error) {
+                console.error("Error loading entries:", error);
+                showMessage(`Failed to load entries: ${error.message}`);
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Error loading entries.</td></tr>';
+            }
         }
 
-        // On page load, check if user logged in and show the appropriate view
+        // On page load, initial setup
         window.onload = function() {
-            const username = getLoggedInUser();
-            if (username) {
-                switchToTimesheetView();
-            } else {
-                switchToAuthView();
-            }
-
             // Set current date as default for entryDate
             const today = new Date();
             const year = today.getFullYear();
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const dayOfMonth = String(today.getDate()).padStart(2, '0');
             document.getElementById('entryDate').value = `${year}-${month}-${dayOfMonth}`;
-            updateDayFromDate(); // Call this to set the initial day based on today's date
+            updateDayFromDate();
 
             // Set current month as default for filterMonth
             document.getElementById('filterMonth').value = `${year}-${month}`;
+            
+            // Initial load of clients and entries will be handled by onAuthStateChanged
+            // once Firebase finishes its initial authentication check.
         };
     </script>
 </body>
